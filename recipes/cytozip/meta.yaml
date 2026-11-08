@@ -1,5 +1,5 @@
 {% set name = "cytozip" %}
-{% set version = "0.3.5" %}
+{% set version = "0.4.2" %}
 
 package:
   name: {{ name|lower }}
@@ -7,11 +7,17 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: a74497dd5cb3e73d88191e1651a9e4156c7ffcc52808b366091120b4034a2337 # filled in by bioconda autobump on each release
+  sha256: ac3f4966a0edc1c931163458c2af7857731dd38569a11b53b763a2b40c0b1e93 # filled in by bioconda autobump on each release
 
 build:
   number: 0
-  skip: true  # [py<38 or win or osx]
+  # Only py>=3.10 is actually installable: bioconda builds the recipe for
+  # 3.10-3.13, and cytozip's deps (numpy/pandas/anndata) no longer ship for
+  # 3.8/3.9. htslib is NOT pinned here on purpose -- htslib's run_exports
+  # already constrains it at build time (e.g. >=1.24,<1.25).
+  # Linux + macOS (x86_64 and arm64). Windows is skipped: htslib / samtools /
+  # pysam have no win-64 packages.
+  skip: true  # [py<310 or win]
   script: |
     # htslib is guaranteed present in ``host:`` requirements below, so
     # force setup.py to build the ``cytozip._bam_pileup`` extension even
@@ -40,18 +46,27 @@ requirements:
     - htslib
     - libdeflate
     - zlib
+    # OpenMP runtime for the conda-forge clang on macOS (gcc on Linux
+    # brings libgomp through the compiler's run_exports).
+    - llvm-openmp  # [osx]
   run:
     - python
     - numpy >=1.19
     - pandas
     - loguru
     - pysam
+    - samtools
     - fsspec
     - requests
-    - anndata
+    # Lower bound keeps the solver off bioconda's ancient anndata-0.6.22 (imports
+    # pandas.core.index, broken with pandas>=1.0) when conda-forge is not on the
+    # channel list. cytozip uses anndata.AnnData / layers / h5ad only.
+    - anndata >=0.8
     - scipy
+    - biopython
     - htslib
     - libdeflate
+    - llvm-openmp  # [osx]
     - zlib
 
 test:
